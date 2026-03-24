@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>競売物件 手続き管理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',sans-serif;background:#f5f4f0;color:#1a1a1a;min-height:100vh;font-size:15px}
+.container{max-width:900px;margin:0 auto;padding:2rem 1rem}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;flex-wrap:wrap;gap:12px}
+.title{font-size:20px;font-weight:600;color:#1a1a1a;letter-spacing:0.02em}
+.header-btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.save-indicator{font-size:12px;color:#1D9E75;min-width:60px}
+.sync-indicator{font-size:12px;color:#185FA5;min-width:60px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:2rem}
+.stat{background:#fff;border-radius:12px;padding:1rem 1.1rem;border:1px solid #e8e6e0}
+.stat-label{font-size:12px;color:#888;margin-bottom:4px}
+.stat-num{font-size:24px;font-weight:600;color:#1a1a1a}
+.filters{display:flex;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap}
+.filter-btn{font-size:13px;padding:5px 14px;border-radius:999px;border:1px solid #d8d6d0;background:#fff;cursor:pointer;color:#666;transition:all 0.15s}
+.filter-btn:hover{border-color:#999}
+.filter-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.top-btn{font-size:13px;padding:7px 16px;border-radius:8px;border:1px solid #d8d6d0;background:#fff;cursor:pointer;color:#444;transition:all 0.15s}
+.top-btn:hover{background:#f0eeea}
+.top-btn.primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.top-btn.primary:hover{background:#333}
+.property-list{display:flex;flex-direction:column;gap:10px}
+.property-card{background:#fff;border:1px solid #e8e6e0;border-radius:14px;padding:1.1rem 1.3rem;cursor:pointer;transition:border-color 0.15s,box-shadow 0.15s}
+.property-card:hover{border-color:#bbb;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.property-card.expanded{border-color:#1a1a1a}
+.card-header{display:flex;align-items:flex-start;gap:10px}
+.card-id{font-size:12px;color:#aaa;min-width:30px;margin-top:3px}
+.card-main{flex:1;min-width:0}
+.card-owner{font-size:15px;font-weight:600;color:#1a1a1a;margin-bottom:5px}
+.card-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card-badge{font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid #e0deda;color:#666;white-space:nowrap}
+.card-case{font-size:11px;color:#999}
+.card-address{font-size:12px;color:#999;margin-top:4px}
+.card-actions{display:flex;gap:6px;align-items:flex-start;flex-shrink:0;flex-wrap:wrap;max-width:160px;justify-content:flex-end}
+.badge{font-size:11px;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.badge-overdue{color:#A32D2D;background:#FCEBEB;border:1px solid #f7c1c1}
+.badge-soon{color:#854F0B;background:#FAEEDA;border:1px solid #FAC775}
+.badge-done{color:#0F6E56;background:#E1F5EE;border:1px solid #9FE1CB}
+.del-btn{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid #e8e6e0;background:transparent;cursor:pointer;color:#aaa;transition:all 0.15s}
+.del-btn:hover{color:#D85A30;border-color:#D85A30}
+.progress-wrap{margin-top:12px}
+.progress-bar-bg{height:5px;background:#f0eeea;border-radius:999px;overflow:hidden}
+.progress-bar{height:100%;border-radius:999px;transition:width 0.4s ease}
+.progress-labels{display:flex;justify-content:space-between;margin-top:5px}
+.progress-pct{font-size:12px;color:#888}
+.deadlines-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.dl-tag{font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid #e8e6e0;color:#888;background:#fafafa;white-space:nowrap}
+.dl-tag.overdue{color:#A32D2D;background:#FCEBEB;border-color:#f7c1c1;font-weight:500}
+.dl-tag.soon{color:#854F0B;background:#FAEEDA;border-color:#FAC775;font-weight:500}
+.card-footer{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.next-action{font-size:12px;color:#185FA5;background:#E6F1FB;padding:3px 11px;border-radius:999px}
+.steps-container{margin-top:14px;border-top:1px solid #f0eeea;padding-top:14px;display:none}
+.steps-container.open{display:block}
+.phase-label{font-size:10px;font-weight:600;letter-spacing:0.08em;color:#aaa;text-transform:uppercase;margin:12px 0 6px;padding-left:30px}
+.phase-label:first-child{margin-top:0}
+.step-row{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid #f8f7f5}
+.step-row:last-child{border-bottom:none}
+.step-num{font-size:11px;color:#bbb;width:18px;text-align:right;flex-shrink:0;margin-top:3px}
+.step-check{width:20px;height:20px;border-radius:50%;border:1.5px solid #d8d6d0;cursor:pointer;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;transition:all 0.15s;background:#fff}
+.step-check:hover{border-color:#1D9E75}
+.step-check.done{background:#1D9E75;border-color:#1D9E75}
+.step-info{flex:1}
+.step-name{font-size:13px;color:#1a1a1a;line-height:1.5}
+.step-name.done{color:#bbb;text-decoration:line-through}
+.step-date-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+.step-deadline-lbl{font-size:11px;color:#bbb}
+.step-date-input{font-size:11px;border:1px solid #e8e6e0;border-radius:6px;padding:2px 8px;background:#f8f7f5;color:#444}
+.step-memo-input{font-size:12px;border:1px solid #e8e6e0;border-radius:6px;padding:3px 8px;background:#f8f7f5;color:#444;width:100%;margin-top:6px;outline:none}
+.step-memo-input:focus{border-color:#999;background:#fff}
+.empty{text-align:center;padding:3rem;color:#bbb;font-size:14px;background:#fff;border-radius:14px;border:1px solid #e8e6e0}
+.loading{text-align:center;padding:3rem;color:#aaa;font-size:14px}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:16px;padding:1.8rem;width:92%;max-width:500px;border:1px solid #e8e6e0;max-height:92vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.12)}
+.modal h3{font-size:17px;font-weight:600;margin-bottom:1.2rem;color:#1a1a1a}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.form-group{margin-bottom:14px}
+.form-group label{font-size:12px;color:#888;display:block;margin-bottom:5px;font-weight:500}
+.form-group input,.form-group select{width:100%;padding:8px 12px;border:1px solid #e8e6e0;border-radius:8px;background:#f8f7f5;color:#1a1a1a;font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s}
+.form-group input:focus,.form-group select:focus{border-color:#999;background:#fff}
+.form-divider{font-size:11px;font-weight:600;color:#bbb;letter-spacing:0.06em;text-transform:uppercase;border-top:1px solid #f0eeea;padding-top:12px;margin-bottom:14px}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:1.2rem}
+.modal-btns button{font-size:13px;padding:8px 18px;border-radius:8px;border:1px solid #e8e6e0;cursor:pointer;background:#fff;color:#444;font-family:inherit;transition:all 0.15s}
+.modal-btns button:hover{background:#f0eeea}
+.modal-btns .confirm-btn{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.modal-btns .confirm-btn:hover{background:#333}
+@media(max-width:600px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .form-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<input type="file" id="csv-imp" accept=".csv" style="display:none" onchange="importCSV(this)" />
+<div class="container">
+  <div id="app"><div class="loading">接続中...</div></div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+// ============================================================
+// ★ ここにFirebaseの設定を貼り付けてください
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCQ0iMaWhcGhSyrmysI1X6XUppOFz1_uAU",
+  authDomain: "auction-mgr.firebaseapp.com",
+  projectId: "auction-mgr",
+  storageBucket: "auction-mgr.firebasestorage.app",
+  messagingSenderId: "135268575272",
+  appId: "1:135268575272:web:df978ae27539cef85d2d1d",
+  measurementId: "G-1LCCX7TVX4"
+};
+// ============================================================
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const COL = 'properties';
+
+const STEPS_MASTER=[
+  {id:'s1',num:1,name:'訪問',phase:'入札前'},
+  {id:'s2',num:2,name:'入札書準備',phase:'入札前'},
+  {id:'s3',num:3,name:'入札保証金',phase:'入札前'},
+  {id:'s4',num:4,name:'入札書類提出',phase:'入札前'},
+  {id:'s5',num:5,name:'開札',phase:'入札前'},
+  {id:'s6',num:6,name:'登記簿謄本取得',phase:'落札後'},
+  {id:'s7',num:7,name:'評価証明取得',phase:'落札後'},
+  {id:'s8',num:8,name:'残金支払い',phase:'落札後'},
+  {id:'s9',num:9,name:'移転登記書類提出',phase:'落札後'},
+];
+const PHASE_COLOR={'入札前':'#185FA5','落札後':'#534AB7'};
+const DEADLINES=[
+  {key:'dlBid',    label:'入札期限'},
+  {key:'dlPayment',label:'残金支払い期限'},
+  {key:'dlTransfer',label:'所有権移転書類提出期限'},
+];
+
+function mkSteps(){const o={};STEPS_MASTER.forEach(s=>{o[s.id]={done:false,date:'',memo:''};});return o;}
+
+let properties=[];
+let filter='all',expanded=new Set(),showModal=false,saveTimer=null;
+let np={address:'',caseNo:'',owner:'',type:'マンション'};
+let nextId=1;
+
+// Firestoreからリアルタイム同期
+onSnapshot(collection(db, COL), (snapshot) => {
+  properties = snapshot.docs.map(d => ({...d.data(), fireId: d.id}));
+  properties.sort((a,b)=>a.id-b.id);
+  // nextIdを最大id+1に
+  if(properties.length>0) nextId = Math.max(...properties.map(p=>p.id||0))+1;
+  render();
+});
+
+async function saveProperty(prop){
+  try{
+    const fireId = prop.fireId || String(prop.id);
+    await setDoc(doc(db, COL, fireId), {...prop, fireId: fireId});
+    showSynced();
+  }catch(e){
+    alert('保存に失敗しました: '+e.message);
+  }
+}
+
+async function removeProperty(fireId){
+  try{
+    await deleteDoc(doc(db, COL, fireId));
+  }catch(e){
+    alert('削除に失敗しました: '+e.message);
+  }
+}
+
+function showSynced(){
+  const el=document.getElementById('sync-ind');
+  if(el){el.textContent='同期済み';clearTimeout(el._t);el._t=setTimeout(()=>{el.textContent='';},1800);}
+}
+
+function today(){const d=new Date();d.setHours(0,0,0,0);return d;}
+function checkDeadline(dateStr){
+  if(!dateStr) return null;
+  const t=today();
+  const dl=new Date(dateStr);dl.setHours(0,0,0,0);
+  const diff=Math.floor((dl-t)/(1000*60*60*24));
+  if(diff<0) return 'overdue';
+  if(diff<=7) return 'soon';
+  return 'ok';
+}
+function getPropAlert(prop){
+  let hasOverdue=false,hasSoon=false;
+  DEADLINES.forEach(d=>{
+    if(d.key==='dlBid'      && prop.steps['s4'] && prop.steps['s4'].done) return;
+    if(d.key==='dlPayment'  && prop.steps['s8'] && prop.steps['s8'].done) return;
+    if(d.key==='dlTransfer' && prop.steps['s9'] && prop.steps['s9'].done) return;
+    const st=checkDeadline(prop[d.key]);
+    if(st==='overdue') hasOverdue=true;
+    if(st==='soon') hasSoon=true;
+  });
+  if(hasOverdue) return 'overdue';
+  if(hasSoon) return 'soon';
+  return 'ok';
+}
+function daysLabel(dateStr){
+  if(!dateStr) return '';
+  const t=today();
+  const dl=new Date(dateStr);dl.setHours(0,0,0,0);
+  const diff=Math.floor((dl-t)/(1000*60*60*24));
+  if(diff<0) return '超過';
+  if(diff===0) return '本日';
+  if(diff===1) return '明日';
+  return diff+'日後';
+}
+function getPct(p){return Math.round(STEPS_MASTER.filter(s=>p.steps[s.id].done).length/STEPS_MASTER.length*100);}
+function getNextStep(p){const s=STEPS_MASTER.find(s=>!p.steps[s.id].done);return s?s.name:null;}
+function barColor(pct){return pct<34?'#E24B4A':pct<67?'#EF9F27':'#1D9E75';}
+function filterProps(){
+  if(filter==='active')  return properties.filter(p=>getPct(p)<100);
+  if(filter==='urgent')  return properties.filter(p=>getPropAlert(p)==='overdue');
+  if(filter==='soon')    return properties.filter(p=>getPropAlert(p)==='soon');
+  if(filter==='done')    return properties.filter(p=>getPct(p)===100);
+  return properties;
+}
+
+function exportCSV(){
+  const BOM='\uFEFF';
+  const headers=['No','所有者名','住所','事件番号','種別','入札期限','残金支払い期限','所有権移転書類提出期限','進捗(%)'];
+  STEPS_MASTER.forEach(s=>headers.push(s.num+'_'+s.name));
+  const rows=properties.map(p=>{
+    const row=[p.id,p.owner,p.address,p.caseNo,p.type,p.dlBid||'',p.dlPayment||'',p.dlTransfer||'',getPct(p)+'%'];
+    STEPS_MASTER.forEach(s=>row.push(p.steps[s.id].done?'済':''));
+    return row.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',');
+  });
+  const csv=BOM+headers.map(h=>'"'+h+'"').join(',')+'\n'+rows.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='競売物件管理_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+window.importCSV = function(input){
+  const file=input.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      const text=e.target.result.replace(/^\uFEFF/,'');
+      const lines=text.split('\n').filter(l=>l.trim());
+      if(lines.length<2){alert('データが見つかりません');return;}
+      const headers=parseCSVLine(lines[0]);
+      const imported=[];
+      for(let i=1;i<lines.length;i++){
+        const cols=parseCSVLine(lines[i]);
+        if(cols.length<2) continue;
+        const get=(name)=>{const idx=headers.indexOf(name);return idx>=0?(cols[idx]||'').trim():'';};
+        const steps=mkSteps();
+        STEPS_MASTER.forEach(s=>{if(get(s.num+'_'+s.name)==='済') steps[s.id].done=true;});
+        const newId=nextId++;
+        imported.push({id:newId,fireId:String(newId),owner:get('所有者名'),address:get('住所'),caseNo:get('事件番号'),type:get('種別')||'その他',dlBid:get('入札期限'),dlPayment:get('残金支払い期限'),dlTransfer:get('所有権移転書類提出期限'),steps});
+      }
+      if(imported.length===0){alert('読み込めるデータがありませんでした');return;}
+      if(!confirm(imported.length+'件のデータを読み込みます。よろしいですか？')){return;}
+      for(const p of imported) await saveProperty(p);
+      alert(imported.length+'件を読み込みました！');
+    }catch(err){alert('読み込みに失敗しました。');}
+    input.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+};
+
+function parseCSVLine(line){
+  const result=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+    else if(c===','&&!inQ){result.push(cur);cur='';}
+    else{cur+=c;}
+  }
+  result.push(cur);return result;
+}
+
+function render(){
+  const total=properties.length;
+  const active=properties.filter(p=>getPct(p)<100).length;
+  const urgent=properties.filter(p=>getPropAlert(p)==='overdue').length;
+  const soon=properties.filter(p=>getPropAlert(p)==='soon').length;
+  const done=properties.filter(p=>getPct(p)===100).length;
+  const filtered=filterProps();
+
+  let html=`
+<div class="header">
+  <span class="title">競売物件 手続き管理</span>
+  <div class="header-btns">
+    <span class="sync-indicator" id="sync-ind"></span>
+    <button class="top-btn" onclick="exportCSV()">CSV出力</button>
+    <button class="top-btn" onclick="document.getElementById('csv-imp').click()">CSV読込</button>
+    <button class="top-btn primary" onclick="openModal()">＋ 物件追加</button>
+  </div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="stat-label">総物件数</div><div class="stat-num">${total}</div></div>
+  <div class="stat"><div class="stat-label">対応中</div><div class="stat-num" style="color:#185FA5">${active}</div></div>
+  <div class="stat"><div class="stat-label">期限超過</div><div class="stat-num" style="color:#D85A30">${urgent}</div></div>
+  <div class="stat"><div class="stat-label">7日以内</div><div class="stat-num" style="color:#BA7517">${soon}</div></div>
+</div>
+<div class="filters">
+  <button class="filter-btn ${filter==='all'?'active':''}" onclick="setFilter('all')">すべて (${total})</button>
+  <button class="filter-btn ${filter==='active'?'active':''}" onclick="setFilter('active')">対応中 (${active})</button>
+  <button class="filter-btn ${filter==='urgent'?'active':''}" onclick="setFilter('urgent')">期限超過 (${urgent})</button>
+  <button class="filter-btn ${filter==='soon'?'active':''}" onclick="setFilter('soon')">7日以内 (${soon})</button>
+  <button class="filter-btn ${filter==='done'?'active':''}" onclick="setFilter('done')">完了 (${done})</button>
+</div>
+<div class="property-list">`;
+
+  if(filtered.length===0){
+    html+=`<div class="empty">物件が登録されていません。<br>「＋ 物件追加」から登録してください。</div>`;
+  }
+
+  filtered.forEach(prop=>{
+    const pct=getPct(prop);
+    const next=getNextStep(prop);
+    const alertLv=getPropAlert(prop);
+    const isExp=expanded.has(prop.id);
+
+    let dlTagsHtml='';
+    DEADLINES.forEach(d=>{
+      if(!prop[d.key]) return;
+      if(d.key==='dlBid'      && prop.steps['s4'] && prop.steps['s4'].done) return;
+      if(d.key==='dlPayment'  && prop.steps['s8'] && prop.steps['s8'].done) return;
+      if(d.key==='dlTransfer' && prop.steps['s9'] && prop.steps['s9'].done) return;
+      const st=checkDeadline(prop[d.key]);
+      const lbl=daysLabel(prop[d.key]);
+      const cls=st==='overdue'?'dl-tag overdue':st==='soon'?'dl-tag soon':'dl-tag';
+      const suffix=(st==='overdue'||st==='soon')?` (${lbl})`:'';
+      dlTagsHtml+=`<span class="${cls}">${d.label}: ${prop[d.key]}${suffix}</span>`;
+    });
+
+    let cardBadge='';
+    if(pct===100) cardBadge='<span class="badge badge-done">完了</span>';
+    else if(alertLv==='overdue') cardBadge='<span class="badge badge-overdue">期限超過</span>';
+    else if(alertLv==='soon') cardBadge='<span class="badge badge-soon">期限まもなく</span>';
+
+    let stepsHtml='',lastPhase='';
+    STEPS_MASTER.forEach(s=>{
+      if(s.phase!==lastPhase){
+        stepsHtml+=`<div class="phase-label" style="color:${PHASE_COLOR[s.phase]}">${s.phase}</div>`;
+        lastPhase=s.phase;
+      }
+      const st=prop.steps[s.id];
+      stepsHtml+=`
+<div class="step-row">
+  <span class="step-num">${s.num}</span>
+  <div class="step-check ${st.done?'done':''}" onclick="toggleStep('${prop.fireId}','${s.id}');event.stopPropagation()">${st.done?'✓':''}</div>
+  <div class="step-info">
+    <div class="step-name ${st.done?'done':''}">${s.name}</div>
+    <div class="step-date-row">
+      <span class="step-deadline-lbl">日付</span>
+      <input class="step-date-input" type="date" value="${st.date}" onchange="saveStepDate('${prop.fireId}','${s.id}',this.value)" onclick="event.stopPropagation()" />
+    </div>
+    <input class="step-memo-input" type="text" placeholder="メモ..." value="${st.memo}" oninput="saveMemoDelay('${prop.fireId}','${s.id}',this.value)" onclick="event.stopPropagation()" />
+  </div>
+</div>`;
+    });
+
+    html+=`
+<div class="property-card ${isExp?'expanded':''}" onclick="toggleExpand(${prop.id})">
+  <div class="card-header">
+    <span class="card-id">#${prop.id}</span>
+    <div class="card-main">
+      <div class="card-owner">${prop.owner||'（所有者未入力）'}</div>
+      <div class="card-meta">
+        <span class="card-badge">${prop.type}</span>
+        ${prop.caseNo?`<span class="card-case">事件番号: ${prop.caseNo}</span>`:''}
+      </div>
+      ${prop.address?`<div class="card-address">${prop.address}</div>`:''}
+    </div>
+    <div class="card-actions">
+      ${cardBadge}
+      <button class="del-btn" onclick="deleteProp('${prop.fireId}');event.stopPropagation()">削除</button>
+    </div>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar-bg"><div class="progress-bar" style="width:${pct}%;background:${barColor(pct)}"></div></div>
+    <div class="progress-labels">
+      <span class="progress-pct">${pct}% 完了（${STEPS_MASTER.filter(s=>prop.steps[s.id].done).length}／${STEPS_MASTER.length}）</span>
+    </div>
+  </div>
+  ${dlTagsHtml?`<div class="deadlines-row">${dlTagsHtml}</div>`:''}
+  ${next?`<div class="card-footer"><span class="next-action">次のステップ: ${next}</span></div>`:''}
+  <div class="steps-container ${isExp?'open':''}" onclick="event.stopPropagation()">
+    ${stepsHtml}
+  </div>
+</div>`;
+  });
+
+  html+=`</div>`;
+
+  if(showModal){
+    html+=`
+<div class="modal-overlay" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>新規物件追加</h3>
+    <div class="form-divider">所有者・物件情報</div>
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0">
+        <label>所有者名</label>
+        <input type="text" id="inp-owner" placeholder="例：田中 太郎" value="${np.owner}" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>種別</label>
+        <select id="inp-type">
+          <option ${np.type==='マンション'?'selected':''}>マンション</option>
+          <option ${np.type==='一戸建て'?'selected':''}>一戸建て</option>
+          <option ${np.type==='土地'?'selected':''}>土地</option>
+          <option ${np.type==='区分所有'?'selected':''}>区分所有</option>
+          <option ${np.type==='その他'?'selected':''}>その他</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:14px"></div>
+    <div class="form-group">
+      <label>住所</label>
+      <input type="text" id="inp-address" placeholder="例：東大阪市荒本北1丁目1番1号" value="${np.address}" />
+    </div>
+    <div class="form-group">
+      <label>事件番号</label>
+      <input type="text" id="inp-caseNo" placeholder="例：令6(ケ)第1234号" value="${np.caseNo}" />
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModal()">キャンセル</button>
+      <button class="confirm-btn" onclick="addProperty()">追加する</button>
+    </div>
+  </div>
+</div>`;
+  }
+
+  document.getElementById('app').innerHTML=html;
+}
+
+window.setFilter    = f=>{filter=f;render();};
+window.exportCSV    = exportCSV;
+window.toggleExpand = id=>{expanded.has(id)?expanded.delete(id):expanded.add(id);render();};
+
+window.toggleStep = async (fireId,stepId)=>{
+  const p=properties.find(x=>x.fireId===fireId);
+  if(!p) return;
+  const updated={...p,steps:{...p.steps,[stepId]:{...p.steps[stepId],done:!p.steps[stepId].done}}};
+  await saveProperty(updated);
+};
+
+window.saveStepDate = async (fireId,stepId,val)=>{
+  const p=properties.find(x=>x.fireId===fireId);
+  if(!p) return;
+  const updated={...p,steps:{...p.steps,[stepId]:{...p.steps[stepId],date:val}}};
+  await saveProperty(updated);
+};
+
+window.saveMemoDelay = (fireId,stepId,val)=>{
+  const p=properties.find(x=>x.fireId===fireId);
+  if(p){
+    p.steps[stepId].memo=val;
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(()=>saveProperty(p),800);
+  }
+};
+
+window.deleteProp = async (fireId)=>{
+  if(confirm('この物件を削除しますか？')){
+    await removeProperty(fireId);
+  }
+};
+
+window.openModal  = ()=>{showModal=true;np={address:'',caseNo:'',owner:'',type:'マンション'};render();};
+window.closeModal = ()=>{showModal=false;render();};
+
+window.addProperty = async ()=>{
+  const owner=(document.getElementById('inp-owner')||{value:''}).value.trim();
+  const address=(document.getElementById('inp-address')||{value:''}).value.trim();
+  const caseNo=(document.getElementById('inp-caseNo')||{value:''}).value.trim();
+  const type=(document.getElementById('inp-type')||{value:'マンション'}).value;
+  if(!owner&&!address){alert('所有者名または住所を入力してください');return;}
+  const newId=nextId++;
+  const prop={
+    id:newId, fireId:String(newId),
+    address:address, caseNo:caseNo,
+    owner:owner, type:type,
+    dlBid:'', dlPayment:'', dlTransfer:'',
+    steps:mkSteps()
+  };
+  showModal=false;
+  await saveProperty(prop);
+};
+
+</script>
+</body>
+</html>
